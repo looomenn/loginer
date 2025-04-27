@@ -1,3 +1,4 @@
+use tauri::ipc::InvokeError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -46,5 +47,11 @@ impl From<argon2::Error> for AppError {
 impl From<argon2::password_hash::Error> for AppError {
     fn from(e: argon2::password_hash::Error) -> Self {
         AppError::HashError(e.to_string())
+    }
+}
+
+impl From<AppError> for InvokeError {
+    fn from(e: AppError) -> Self {
+        InvokeError::from(e.to_string())
     }
 }
