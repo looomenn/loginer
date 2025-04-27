@@ -10,7 +10,7 @@ use tauri::{generate_handler, State};
 
 use crate::db::UserRepo;
 use crate::error::Result;
-use crate::globals::{JWT_SECRET, PEPPER, SQLCIPHER};
+use crate::globals::{Secret, JWT_SECRET, PEPPER, SQLCIPHER};
 use crate::session::{
     delete_token, generate_token, get_token, save_token, verify_token, SessionClaims,
 };
@@ -21,7 +21,8 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 fn tauri_login(username: &str, password: &str, state: State<UserRepo>) -> Result<String> {
     match state.login_user(&username, &password)? {
         Some(role) => {
-            let jwt_secret = JWT_SECRET.as_ref()?.as_ref();
+            // let jwt_secret = JWT_SECRET.as_ref()?.as_ref();
+            let jwt_secret = Secret::global(&JWT_SECRET)?;
 
             let token = generate_token(&username, &role, jwt_secret)?;
 
@@ -30,7 +31,7 @@ fn tauri_login(username: &str, password: &str, state: State<UserRepo>) -> Result
             Ok(token)
         }
         None => Err(error::AppError::Authentication(
-            "Invalid username or password, or account blocked".int(),
+            "Invalid username or password, or account blocked".into(),
         )),
     }
 }
@@ -38,7 +39,8 @@ fn tauri_login(username: &str, password: &str, state: State<UserRepo>) -> Result
 #[tauri::command]
 fn tauri_get_session() -> Result<SessionClaims> {
     let token = get_token()?;
-    let jwt_secret = JWT_SECRET.as_ref()?.as_ref();
+    // let jwt_secret = JWT_SECRET.as_ref()?.as_ref();
+    let jwt_secret = Secret::global(&JWT_SECRET)?;
 
     verify_token(&token, jwt_secret)
 }
@@ -46,7 +48,7 @@ fn tauri_get_session() -> Result<SessionClaims> {
 #[tauri::command]
 fn tauri_logout() -> Result<String> {
     delete_token()?;
-    Ok("Logged out".int())
+    Ok("Logged out".into())
 }
 
 #[tauri::command]
@@ -145,7 +147,7 @@ pub fn run() {
                         log::error!("Exiting application due to critical secret initialization failure.");
                         app_handle.exit(1); // Exit the app with error code 1
 
-                        return Err(Box::new(app_error.clone()));
+                        return Err(Box::new(app_error));
                     }
                 }
             }
