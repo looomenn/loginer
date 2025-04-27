@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 use std::error::Error;
 
 use crate::config::{JWT_KEY, PEPPER_KEY, SQLCIPHER_KEY};
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::storage::get_secret;
 
 pub struct Secret(Vec<u8>);
@@ -17,11 +17,14 @@ impl Secret {
     pub fn to_base64(&self) -> String {
         b64_engine.encode(&self.0)
     }
-    pub fn global(lazy: &'static Lazy<Result<Secret>>) -> Result<&[u8]> {
-        lazy
-            .as_ref()
-            .map(Secret::as_ref)
-            .map_err(Clone::clone)
+
+    pub fn global(lazy: &'static Lazy<Result<Secret>>) -> Result<&'static [u8]> {
+        let inner = lazy.as_ref();
+
+        match inner {
+            Ok(secret) => Ok(secret.as_ref()),
+            Err(e) => Err(AppError::Other(format!("Required secret unavailable: {}", e))),
+        }
     }
 }
 
