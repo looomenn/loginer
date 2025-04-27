@@ -1,9 +1,11 @@
 use crate::auth::{hash_password, verify_password};
 use crate::error::{AppError, Result};
-use crate::globals::SQLCIPHER;
+use crate::globals::{Secret, SQLCIPHER};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::sync::Mutex;
+use base64::{engine::general_purpose::STANDARD as b64_engine, Engine as _};
+
 
 #[derive(Debug, Serialize)]
 pub struct User {
@@ -23,9 +25,12 @@ impl UserRepo {
     pub fn new() -> Result<Self> {
         let conn = Connection::open("users.db")?;
 
-        let key_str = SQLCIPHER.as_ref()?.as_ref();
+        let key_bytes = Secret::global(&SQLCIPHER)?;
+        // let key_str = SQLCIPHER.as_ref()?.as_ref();
 
-        conn.pragma_update(None, "key", &key_str)?;
+        let key_b64 = b64_engine.encode(key_bytes);
+
+        conn.pragma_update(None, "key", &key_b64)?;
         Ok(UserRepo { conn: Mutex::new(conn) })
     }
 
