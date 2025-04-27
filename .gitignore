@@ -252,3 +252,4 @@ fabric.properties
 
 settings.json
 src-tauri/users.db
+.vscode/extensions.json
