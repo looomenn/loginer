@@ -6,7 +6,7 @@ use rand::rngs::OsRng;
 
 use crate::config::{argon2_params, ARGON2_ALGO, ARGON2_VERSION};
 use crate::error::{AppError, Result};
-use crate::globals::PEPPER;
+use crate::globals::{Secret, PEPPER};
 
 #[derive(Debug, Clone)]
 pub struct Argon {
@@ -21,12 +21,14 @@ impl Argon {
 }
 
 pub fn hash_password(password: &str) -> Result<String> {
-    let pepper = match PEPPER.as_ref() {
-        Ok(pepper) => pepper.as_ref(),
-        Err(err) => {
-            return Err(AppError::Internal(format!("Required secret unavailable: {}", err)));
-        }
-    };
+    // let pepper = match PEPPER.as_ref() {
+    //     Ok(pepper) => pepper.as_ref(),
+    //     Err(err) => {
+    //         return Err(AppError::Internal(format!("Required secret unavailable: {}", err)));
+    //     }
+    // };
+
+    let pepper = Secret::global(&PEPPER)?;
 
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::new_with_secret(pepper, ARGON2_ALGO, ARGON2_VERSION, argon2_params())?;
@@ -38,12 +40,14 @@ pub fn hash_password(password: &str) -> Result<String> {
 }
 
 pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
-    let pepper = match PEPPER.as_ref() {
-        Ok(pepper) => pepper.as_ref(),
-        Err(err) => {
-            return Err(AppError::Internal(format!("Required secret unavailable: {}", err)));
-        }
-    };
+    // let pepper = match PEPPER.as_ref() {
+    //     Ok(pepper) => pepper.as_ref(),
+    //     Err(err) => {
+    //         return Err(AppError::Internal(format!("Required secret unavailable: {}", err)));
+    //     }
+    // };
+
+    let pepper = Secret::global(&PEPPER)?;
 
     let password_hash = PasswordHash::new(&hash)?;
 
