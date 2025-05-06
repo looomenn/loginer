@@ -6,7 +6,8 @@ mod globals;
 mod session;
 mod storage;
 
-use tauri::{generate_handler, State};
+use tauri::{generate_handler, State, Manager, Window};
+use tauri::menu::MenuBuilder;
 
 use crate::db::UserRepo;
 use crate::error::Result;
@@ -114,6 +115,37 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle();
 
+            let menu = MenuBuilder::new(app)
+                .text("about", "About")
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            app.on_menu_event(move |app_handle, event| {
+                if event.id().0.as_str() == "about" {
+                    let window = app_handle.get_webview_window("main").unwrap();
+
+                    let pkg = app_handle.package_info();
+
+                    let title         = &pkg.name;
+                    let description     = pkg.description;
+                    let authors         = pkg.authors;
+                    let version     = &pkg.version;
+                    let date                 = "(c) 2025";
+
+                    let msg = format!(
+                        "{title}\n{description}\n\nAuthor(s): {authors}\nBuild: {version}\nDate: {date}"
+                    );
+
+                    let _ = window
+                        .dialog()
+                        .message(&msg)
+                        .kind(MessageDialogKind::Info)
+                        .title("About")
+                        .blocking_show();
+                }
+            });
+
             let secrets = [
                 ("PEPPER", &PEPPER),
                 ("SQLCIPHER", &SQLCIPHER),
@@ -169,169 +201,3 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-
-
-// pub struct Password(String);
-//
-// impl AsRef<str> for Password {
-//     fn as_ref(&self) -> &str {
-//         self.0.as_ref()
-//     }
-// }
-//
-// fn get_secret(key_name: &str) -> Result<Password, KeyringError> {
-//     println!("[DEBUG][Keyring] Accessing keyring for service='loginer', key='{}'", key_name);
-//     let entry = Entry::new("loginer", key_name)?;
-//
-//     match entry.get_password() {
-//         Ok(secret) => {
-//             println!("[DEBUG][Keyring] Found existing non-empty secret for key: '{}'. Reusing.", key_name);
-//             Ok(Password(secret))
-//         },
-//         Err(KeyringError::NoEntry) => {
-//                 println!("[DEBUG][Keyring] no entry found for {}@{}", "loginer", key_name);
-//                 let secret: String = rand::thread_rng()
-//                     .sample_iter(&Alphanumeric)
-//                     .take(32)
-//                     .map(char::from)
-//                     .collect();
-//
-//                 entry.set_password(&secret)?;
-//                 println!("[DEBUG][Keyring] Saved the key");
-//                 Ok(Password(secret))
-//         },
-//         Err(e) => Err(e),
-//     }
-// }
-
-// pub fn open_db() -> SqlResult<Connection> {
-//     println!("[DEBUG][DB] Opening database 'users.db'");
-//
-//     let conn = Connection::open("users.db")?;
-//     let key_str = SQLCIPHER.as_ref().expect("SQLCIPHER is required").as_ref();
-//
-//     conn.pragma_update(None, "key", key_str)?;
-//
-//     println!(
-//         "[DEBUG][DB] Database opened using SQLCipher key of length: {}",
-//         key_str
-//     );
-//     Ok(conn)
-// }
-//
-// pub fn init_db() -> SqlResult<()> {
-//     println!("[DEBUG][DB] Initializing database");
-//
-//     let conn = open_db()?;
-//     conn.execute(
-//         "CREATE TABLE IF NOT EXISTS users (
-//             id INTEGER PRIMARY KEY AUTOINCREMENT,
-//             username TEXT UNIQUE NOT NULL,
-//             password_hash TEXT NOT NULL,
-//             role TEXT NOT NULL,
-//             blocked INTEGER NOT NULL DEFAULT 0,
-//             min_password_length INTEGER
-//         )",
-//         [],
-//     )?;
-//     println!("[DEBUG][DB] Table 'users' created or already exists");
-//
-//     let mut stmt = conn.prepare("SELECT COUNT(*) FROM users WHERE username = 'ADMIN'")?;
-//     let count: i64 = stmt.query_row([], |row| Ok(row.get(0)?))?;
-//     if count == 0 {
-//         let hash = hash_password("admin").expect("Failed to hash password");
-//         conn.execute(
-//             "INSERT INTO users (username, password_hash, role, blocked) VALUES (?1, ?2, ?3, ?4)",
-//             params!["ADMIN", hash, "admin", 0],
-//         )?;
-//     } else {
-//         println!("[DEBUG][DB] Default ADMIN user already exists");
-//     }
-//     Ok(())
-// }
-
-// pub fn hash_password(password: &str) -> Result<String, argon2::password_hash::Error> {
-//
-//     let _pepper = PEPPER.as_ref().expect("Password failure").as_ref();
-//
-//     let salt = SaltString::generate(&mut OsRng);
-//     let argon2 = Argon2::new_with_secret(
-//         _pepper.as_bytes(),
-//         ARGON2_ALGO,
-//         ARGON2_VERSION,
-//         argon2_params(),
-//     )?;
-//
-//     let password_hash = argon2.hash_password(password.as_bytes(), &salt)?.to_string();
-//     Ok(password_hash)
-// }
-//
-// pub fn verify_password(password: &str, hash: &str) -> Result<bool, argon2::password_hash::Error> {
-//     println!("[DEBUG][Verify] Verifying password. Input length: {}, hash: {}", password.len(), hash);
-//
-//     let _pepper = PEPPER.as_ref().expect("Password failure").as_ref();
-//     println!("[DEBUG][Verify] Pepper: {}", _pepper);
-//
-//
-//
-//     let password_hash =  match PasswordHash::new(&hash) {
-//         Ok(hash) => {
-//             println!("[DEBUG][Verify] Successfully parsed PasswordHash string");
-//             println!("[DEBUG][Verify] Algo: {}", hash.algorithm.to_string());
-//             hash
-//         }
-//         Err(err) => {
-//             eprintln!("[ERROR][Verify] Failed to parse hash string: {:?}", err);
-//             return Err(err);
-//         }
-//     };
-//
-//
-//     let argon2 = Argon2::new_with_secret(
-//         _pepper.as_bytes(),
-//         ARGON2_ALGO,
-//         ARGON2_VERSION,
-//         argon2_params(),
-//     ).expect("Can't init argon2....");
-//
-//     let is_valid = argon2.verify_password(password.as_bytes(), &password_hash).is_ok();
-//     println!("[DEBUG][Verify] Password verification result: {}", is_valid);
-//
-//     Ok(is_valid)
-// }
-
-// pub fn login_user(username: &str, password: &str) -> SqlResult<Option<String>> {
-//     let conn = open_db()?;
-//     let mut stmt = conn.prepare("SELECT password_hash, role, blocked, min_password_length FROM users WHERE username = ?1")?;
-//
-//     let mut rows = stmt.query(params![username])?;
-//     if let Some(row) = rows.next()? {
-//         let password_hash: String = row.get(0)?;
-//         let role: String = row.get(1)?;
-//         let blocked: bool = row.get(2)?;
-//         let min_password_length: Option<u32> = row.get(3)?;
-//
-//         println!("[DEBUG][Verify] Need to verify: pass: {}, hash: {}", password, &password_hash);
-//
-//         if blocked != false {
-//             return Ok(None);
-//         }
-//         if let Some(min_len) = min_password_length {
-//             if password.len() < min_len as usize {
-//                 return Ok(None);
-//             }
-//         }
-//         match verify_password(password, &password_hash) {
-//             Ok(valid) => {
-//                 if valid {
-//                     Ok(Some(role))
-//                 } else {
-//                     Ok(None)
-//                 }
-//             }
-//             Err(_) => Ok(None),
-//         }
-//     } else {
-//         Ok(None)
-//     }
-// }
