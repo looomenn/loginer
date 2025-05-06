@@ -11,9 +11,11 @@
 
         try {
             const role = await invoke("tauri_login", { username, password });
-            if (role === "admin") {
+            const session = await invoke("tauri_get_session");
+
+            if (session.role === "admin") {
                 goto("/admin");
-            } else if (role === "user") {
+            } else if (session.role === "user") {
                 goto("/user");
             } else {
                 errorMessage = "Unknown role";
