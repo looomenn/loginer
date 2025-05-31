@@ -21,13 +21,6 @@ impl Argon {
 }
 
 pub fn hash_password(password: &str) -> Result<String> {
-    // let pepper = match PEPPER.as_ref() {
-    //     Ok(pepper) => pepper.as_ref(),
-    //     Err(err) => {
-    //         return Err(AppError::Internal(format!("Required secret unavailable: {}", err)));
-    //     }
-    // };
-
     let pepper = Secret::global(&PEPPER)?;
 
     let salt = SaltString::generate(&mut OsRng);
@@ -40,13 +33,6 @@ pub fn hash_password(password: &str) -> Result<String> {
 }
 
 pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
-    // let pepper = match PEPPER.as_ref() {
-    //     Ok(pepper) => pepper.as_ref(),
-    //     Err(err) => {
-    //         return Err(AppError::Internal(format!("Required secret unavailable: {}", err)));
-    //     }
-    // };
-
     let pepper = Secret::global(&PEPPER)?;
 
     let password_hash = PasswordHash::new(&hash)?;

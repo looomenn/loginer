@@ -26,30 +26,6 @@
     }
 </script>
 
-<!--
-<main class="container">
-    <h1>Loginer</h1>
-    <form class="login-form" onsubmit={login}>
-        <input
-            class="input"
-            type="text"
-            placeholder="Username"
-            required
-            bind:value={username}
-        />
-        <input
-            class="input"
-            type="password"
-            placeholder="Password"
-            bind:value={password}
-        />
-        <button type="submit" class="btn w-64 rounded-full">Log in</button>
-    </form>
-    {#if errorMessage}
-        <p style="color: red">{errorMessage}</p>
-    {/if}
-</main> -->
-
 <main>
     <div class="flex items-center justify-center min-h-screen bg-base-200">
         <div class="card w-96 bg-base-100 shadow-md">
