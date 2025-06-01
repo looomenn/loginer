@@ -2112,7 +2112,7 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "loginer"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "argon2",
  "base64 0.22.1",
@@ -2124,13 +2124,11 @@ dependencies = [
  "rand 0.8.5",
  "rusqlite",
  "serde",
- "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "thiserror 2.0.12",
- "zeroize",
 ]
 
 [[package]]
@@ -5564,12 +5562,6 @@ dependencies = [
  "syn 2.0.100",
  "synstructure",
 ]
-
-[[package]]
-name = "zeroize"
-version = "1.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced3678a2879b30306d323f4542626697a464a97c0a07c9aebf7ebca65cd4dde"
 
 [[package]]
 name = "zerovec"
