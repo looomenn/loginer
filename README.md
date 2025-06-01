@@ -1,7 +1,47 @@
-# Tauri + SvelteKit
+# Loginer
+Very cool app
 
-This template should help get you started developing with Tauri and SvelteKit in Vite.
+## Setup
 
-## Recommended IDE Setup
+Install Rust
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+Install Tauri CLI
+```bash
+npm install --save-dev @tauri-apps/cli@latest
+```
+
+Install sql-cipher
+```bash
+sudo apt-get install sqlcipher libsqlcipher-dev
+```
+
+Install build-tools
+```bash
+sudo apt-get install build-essential libssl-dev pkg-config
+```
+
+Unzip the source archive
+```bash
+unzip loginer.zip -d loginer
+cd ./loginer
+```
+
+Install deps
+```bash
+yarn install
+```
+
+Build it
+```bash
+yarn tauri build
+```
+
+Or run it in dev
+```bash
+yarn tauri dev
+```
+
+Keep in mind, cause there is sqlcipher you'll need to build opnessl-sys. That takes some time.. 
