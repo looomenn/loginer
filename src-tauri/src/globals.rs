@@ -1,6 +1,5 @@
 use base64::{engine::general_purpose::STANDARD as b64_engine, Engine as _};
 use once_cell::sync::Lazy;
-use std::error::Error;
 
 use crate::config::{JWT_KEY, PEPPER_KEY, SQLCIPHER_KEY};
 use crate::error::{AppError, Result};
@@ -52,5 +51,3 @@ pub static JWT_SECRET: Lazy<Result<Secret>> = Lazy::new(|| {
     Ok(decoded)
 });
 
-// pub static SQLCIPHER: Lazy<Result<Password, storage::error::Error>> = Lazy::new(|| {get_secret(SQLCIPHER_KEY)});
-// pub static PEPPER: Lazy<Result<Password, storage::error::Error>> = Lazy::new(|| {get_secret(PEPPER_KEY)});
