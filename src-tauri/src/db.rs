@@ -16,7 +16,6 @@ pub struct User {
     pub min_password_length: Option<u32>,
 }
 
-// Repo for user-related db operations.
 pub struct UserRepo {
     conn: Mutex<Connection>,
 }
@@ -26,11 +25,9 @@ impl UserRepo {
         let conn = Connection::open("users.db")?;
 
         let key_bytes = Secret::global(&SQLCIPHER)?;
-        // let key_str = SQLCIPHER.as_ref()?.as_ref();
-
         let key_b64 = b64_engine.encode(key_bytes);
-
         conn.pragma_update(None, "key", &key_b64)?;
+
         Ok(UserRepo { conn: Mutex::new(conn) })
     }
 
@@ -84,7 +81,7 @@ impl UserRepo {
             .optional()?;
 
         if let Some((stored_hash, role, blocked, min_length)) = row {
-            if blocked != 0 || !Self::is_valid_password(password, min_length) {
+            if blocked != 0 {
                 return Ok(None);
             }
             if verify_password(password, &stored_hash)? {
@@ -125,6 +122,16 @@ impl UserRepo {
         Ok(true)
     }
 
+    pub fn override_password(&self, user_id: &i32, new_password: &str) -> Result<()> {
+        let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
+        let new_hash = hash_password(&new_password)?;
+        conn_guard.execute(
+            "UPDATE users SET password_hash = ?1 WHERE id = ?2",
+            params![new_hash, user_id],
+        )?;
+        Ok(())
+    }
+
     pub fn get_users(&self) -> Result<Vec<User>> {
         let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
 
@@ -147,11 +154,79 @@ impl UserRepo {
     pub fn add_new_user(&self, username: &str) -> Result<bool> {
         let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
 
+        let exists: bool = conn_guard
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE username = ?1)",
+                params![username],
+                |row| row.get(0),
+            )?;
+
+        if exists {
+            return Ok(false);
+        }
+
         let hash = hash_password("")?;
         let affected = conn_guard.execute(
-            "INSERT OR IGNORE INTO users (username, password, role, blocked)\
-           VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO users (username, password_hash, role, blocked) VALUES (?1, ?2, ?3, ?4)",
             params![username, hash, "user", 0],
+        )?;
+        Ok(affected == 1)
+    }
+
+    pub fn delete_user(&self, username: &str) -> Result<bool> {
+        let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
+        let affected = conn_guard.execute(
+            "DELETE FROM users WHERE username = ?1",
+            params![username],
+        )?;
+        Ok(affected == 1)
+    }
+
+    pub fn get_user_by_id(&self, user_id: i32) -> Result<Option<User>> {
+        let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
+
+        let mut stmt = conn_guard.prepare(
+            "SELECT id, username, role, blocked, min_password_length FROM users WHERE id = ?1"
+        )?;
+
+        let row = stmt
+            .query_row(params![user_id], |row| {
+                Ok(User {
+                    id: row.get(0)?,
+                    username: row.get(1)?,
+                    role: row.get(2)?,
+                    blocked: row.get::<_, i32>(3)? != 0,
+                    min_password_length: row.get(4)?,
+                })
+            })
+            .optional()?;
+        Ok(row)
+    }
+
+    pub fn get_user_by_username(&self, username: &str) -> Result<Option<User>> {
+        let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
+        let mut stmt = conn_guard.prepare(
+            "SELECT id, username, role, blocked, min_password_length FROM users WHERE username = ?1"
+        )?;
+        let row = stmt
+            .query_row(params![username], |r| {
+                Ok(User {
+                    id: r.get(0)?,
+                    username: r.get(1)?,
+                    role: r.get(2)?,
+                    blocked: r.get::<_, i32>(3)? != 0,
+                    min_password_length: r.get(4)?,
+                })
+            })
+            .optional()?;
+        Ok(row)
+    }
+
+    pub fn rename_user(&self, user_id: &str, new_username: &str) -> Result<bool> {
+        let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
+        let affected = conn_guard.execute(
+            "UPDATE users SET username = ?1 WHERE id = ?2",
+            params![new_username, user_id],
         )?;
         Ok(affected == 1)
     }
@@ -160,7 +235,7 @@ impl UserRepo {
         let conn_guard = self.conn.lock().map_err(Self::map_poison_err)?;
 
         let affected = conn_guard.execute(
-            "UPDATE users SET block = ?1 WHERE username = ?2",
+            "UPDATE users SET blocked = ?1 WHERE username = ?2",
             params![if block { 1 } else { 0 }, username],
         )?;
         Ok(affected == 1)
