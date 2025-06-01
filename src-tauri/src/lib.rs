@@ -6,27 +6,40 @@ mod globals;
 mod session;
 mod storage;
 
+use std::fmt::format;
 use tauri::{generate_handler, State, Manager, Window};
 use tauri::menu::MenuBuilder;
-
-use crate::db::UserRepo;
+use crate::db::{User, UserRepo};
 use crate::error::Result;
 use crate::globals::{Secret, JWT_SECRET, PEPPER, SQLCIPHER};
 use crate::session::{
-    delete_token, generate_token, get_token, save_token, verify_token, SessionClaims,
+    clear_session,
+    delete_token,
+    generate_token,
+    get_token,
+    save_token,
+    verify_token,
+    SessionClaims,
+    get_session_claims
 };
 
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+
+
+#[tauri::command]
+fn tauri_get_own_info(state: State<UserRepo>) -> Result<User> {
+    let claims = tauri_get_session()?;
+    let user = state.get_user_by_username(&claims.sub)?;
+    user.ok_or_else(|| error::AppError::Internal(format!("User '{}' not found", &claims.sub)))
+}
 
 #[tauri::command]
 fn tauri_login(username: &str, password: &str, state: State<UserRepo>) -> Result<String> {
     match state.login_user(&username, &password)? {
         Some(role) => {
-            // let jwt_secret = JWT_SECRET.as_ref()?.as_ref();
+
             let jwt_secret = Secret::global(&JWT_SECRET)?;
-
             let token = generate_token(&username, &role, jwt_secret)?;
-
             save_token(&token)?;
 
             Ok(token)
@@ -40,7 +53,6 @@ fn tauri_login(username: &str, password: &str, state: State<UserRepo>) -> Result
 #[tauri::command]
 fn tauri_get_session() -> Result<SessionClaims> {
     let token = get_token()?;
-    // let jwt_secret = JWT_SECRET.as_ref()?.as_ref();
     let jwt_secret = Secret::global(&JWT_SECRET)?;
 
     verify_token(&token, jwt_secret)
@@ -48,17 +60,34 @@ fn tauri_get_session() -> Result<SessionClaims> {
 
 #[tauri::command]
 fn tauri_logout() -> Result<String> {
+    clear_session();
     delete_token()?;
     Ok("Logged out".into())
 }
 
+fn check_admin() -> Result<SessionClaims> {
+    let claims = tauri_get_session()?;
+    if claims.role != "admin" {
+        return Err(error::AppError::Authentication("Unauthorized".into()));
+    }
+    Ok(claims)
+}
+
+fn check_user(user_id: i32, state: &State<UserRepo>) -> Result<User> {
+    let user = state.get_user_by_id(user_id)?
+        .ok_or_else(|| error::AppError::Authentication("User not found".into()))?;
+    Ok(user)
+}
+
 #[tauri::command]
-fn tauri_get_users(state: State<UserRepo>) -> Result<Vec<db::User>> {
+fn tauri_get_users(state: State<UserRepo>) -> Result<Vec<User>> {
+    check_admin()?;
     state.get_users()
 }
 
 #[tauri::command]
 fn tauri_add_user(username: &str, state: State<UserRepo>) -> Result<String> {
+    check_admin()?;
     match state.add_new_user(&username)? {
         true => Ok("User added successfully.".into()),
         false => Err(error::AppError::Authentication(
@@ -68,35 +97,70 @@ fn tauri_add_user(username: &str, state: State<UserRepo>) -> Result<String> {
 }
 
 #[tauri::command]
-fn tauri_set_block_status(username: &str, block: bool, state: State<UserRepo>) -> Result<String> {
-    state.update_user_block_status(&username, block)?;
+fn tauri_set_block_status(user_id: i32, block: bool, state: State<UserRepo>) -> Result<String> {
+    check_admin()?;
+    let user = check_user(user_id, &state)?;
+    state.update_user_block_status(&user.username, block)?;
     Ok("User block status updated successfully.".into())
 }
 
 #[tauri::command]
 fn tauri_set_restriction(
-    username: &str,
+    user_id: i32,
     min_length: Option<u32>,
     state: State<UserRepo>,
 ) -> Result<String> {
-    state.update_user_restriction(&username, min_length)?;
+    check_admin()?;
+    let user = check_user(user_id, &state)?;
+    state.update_user_restriction(&user.username, min_length)?;
     Ok("User restriction updated successfully.".into())
 }
 
 #[tauri::command]
 fn tauri_change_password(
-    username: &str,
+    user_id: i32,
     current_password: &str,
     new_password: &str,
     state: State<UserRepo>,
 ) -> Result<String> {
-    match state.change_pass(&username, &current_password, &new_password)? {
+
+    let claims = tauri_get_session()?;
+    let user = check_user(user_id, &state)?;
+
+    if claims.sub != user.username {
+        return Err(error::AppError::Authentication("Unauthorized".into()));
+    }
+
+    match state.change_pass(&user.username, &current_password, &new_password)? {
         true => Ok("Password changed successfully.".into()),
         false => Err(error::AppError::Authentication(
             "Current password incorrect or new password does not meet requirements".into(),
         )),
     }
 }
+
+#[tauri::command]
+fn tauri_override_password(user_id: i32, new_password: &str, state: State<UserRepo>) -> Result<String> {
+    check_admin()?;
+    let user = check_user(user_id, &state)?;
+
+    state.override_password(&user.id, new_password)?;
+    Ok("Password changed successfully.".into())
+}
+
+#[tauri::command]
+fn tauri_delete_user(user_id: i32, state: State<UserRepo>) -> Result<String> {
+    let claims = check_admin()?;
+    let user = check_user(user_id, &state)?;
+
+    if user.username == claims.sub {
+        return Err(error::AppError::Authentication("Cannot delete yourself".into()));
+    }
+
+    state.delete_user(&user.username)?;
+    Ok("User deleted successfully.".into())
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -193,9 +257,13 @@ pub fn run() {
             tauri_logout,
             tauri_get_session,
             tauri_get_users,
+            tauri_override_password,
+            tauri_change_password,
             tauri_add_user,
+            tauri_get_own_info,
             tauri_set_block_status,
-            tauri_set_restriction
+            tauri_set_restriction,
+            tauri_delete_user
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
