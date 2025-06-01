@@ -2,6 +2,7 @@
     import { invoke } from "@tauri-apps/api/core";
     import { goto } from "$app/navigation";
 
+
     let username = $state("");
     let password = $state("");
     let errorMessage = $state("");
@@ -10,7 +11,8 @@
         errorMessage = "";
 
         try {
-            const role = await invoke("tauri_login", { username, password });
+            const jwt = await invoke("tauri_login", { username, password });
+
             const session = await invoke("tauri_get_session");
 
             if (session.role === "admin") {
@@ -64,7 +66,6 @@
                             bind:value={password}
                             placeholder="pass"
                             class="input w-full mt-2 validator"
-                            required
                             id="form_login_password"
                         />
                         <div class="validator-hint hidden">Enter password</div>
