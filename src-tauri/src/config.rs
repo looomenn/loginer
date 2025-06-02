@@ -26,4 +26,10 @@ pub const JWT_KEY: &str = "jwt_signing_key_yo";
 
 pub const SESSION_KEY: &str = "jwt_session_token";
 
+pub const PUB_KEY: &str = "pub_key_yo";
+
+pub const REG_PATH: &str = r"Software\Loginer";
+
+pub const REG_VALUE: &str = "Signature";
+
 pub const KEY_LIFETIME_SECONDS: u64 = 60 * 60 * 24 * 30; // 30 days
