@@ -5,6 +5,7 @@ mod error;
 mod globals;
 mod session;
 mod storage;
+mod sysinfo;
 
 use std::fmt::format;
 use tauri::{generate_handler, State, Manager, Window};
@@ -22,6 +23,8 @@ use crate::session::{
     SessionClaims,
     get_session_claims
 };
+
+use crate::sysinfo::{check_rsa};
 
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
@@ -178,6 +181,25 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_handle = app.handle();
+
+            let install_dir = std::env::current_exe()
+                .map_err(|e| format!("failed to locate executable: {}", e))?
+                .parent()
+                .ok_or("cannot determine install directory")?
+                .to_path_buf();
+
+            if let Err(e) = check_rsa(&install_dir) {
+                let user_message = format!("Unable to verify system fingerprint! The application will not continue to work for security reasons.\n\nClick OK to exit the application.\n\nError description: ({})", e);
+                app.handle()
+                    .dialog()
+                    .message(user_message)
+                    .kind(MessageDialogKind::Error)
+                    .title("Error")
+                    .blocking_show();
+                app.handle().exit(1);
+            }
+
+            log::info!("Fingerprint checked!");
 
             let menu = MenuBuilder::new(app)
                 .text("about", "About")
