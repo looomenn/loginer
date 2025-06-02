@@ -1,3 +1,4 @@
+use std::fs;
 use crate::auth::{hash_password, verify_password};
 use crate::error::{AppError, Result};
 use crate::globals::{Secret, SQLCIPHER};
@@ -5,7 +6,9 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use std::sync::Mutex;
 use base64::{engine::general_purpose::STANDARD as b64_engine, Engine as _};
+use dirs::data_dir;
 
+use crate::config::SERVICE_NAME;
 
 #[derive(Debug, Serialize)]
 pub struct User {
@@ -22,7 +25,16 @@ pub struct UserRepo {
 
 impl UserRepo {
     pub fn new() -> Result<Self> {
-        let conn = Connection::open("users.db")?;
+        let mut folder = data_dir()
+            .ok_or_else(|| AppError::Internal("Failed to get data_dir".to_string()))?;
+
+        folder.push(SERVICE_NAME);
+        fs::create_dir_all(&folder)
+            .map_err(|e| AppError::Internal(format!("Failed to create data dir: {}", e)))?;
+
+        folder.push("users.db");
+
+        let conn = Connection::open(&folder)?;
 
         let key_bytes = Secret::global(&SQLCIPHER)?;
         let key_b64 = b64_engine.encode(key_bytes);
