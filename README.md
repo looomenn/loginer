@@ -44,4 +44,4 @@ Or run it in dev
 yarn tauri dev
 ```
 
-Keep in mind, cause there is sqlcipher you'll need to build opnessl-sys. That takes some time.. 
+Keep in mind, cause there is sqlcipher you'll need to build openssl-sys. That takes some time.. 
